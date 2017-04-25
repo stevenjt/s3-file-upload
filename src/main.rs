@@ -165,7 +165,7 @@ fn main()
 {
     if env::args().len() < 3
     {
-        println!("Not enough arguments");
+        println!("Usage: s3-file-upload LOCAL_PATH BUCKET_NAME");
         return;
     }
 

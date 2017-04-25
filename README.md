@@ -2,4 +2,8 @@
 
 A small console app that uploads files to an AWS S3 bucket.
 
-This is both a small utility I needed, and something try out [Rust](https://www.rust-lang.org/) with.
+```
+$ s3-file-upload LOCAL_PATH BUCKET_NAME
+```
+
+This is a small utility I needed, and also something to use to try out [Rust](https://www.rust-lang.org/).
