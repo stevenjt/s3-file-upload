@@ -172,6 +172,12 @@ fn main()
     let local_path  = env::args().nth(1).unwrap();
     let bucket_name = env::args().nth(2).unwrap();
 
+    if !Path::new("credentials").exists()
+    {
+        println!("credentials file could not be found");
+        return;
+    }
+
     let mut files: Vec<LocalFile> = Vec::new();
     get_local_files(&local_path, &mut files);
 
