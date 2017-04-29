@@ -163,7 +163,7 @@ fn get_bucket_objects(bucket_name: &String, objects: &mut Vec<Object>)
 /**
  * Get files from a local path
  */
-fn get_local_files(local_path: &String, files: &mut Vec<LocalFile>)
+fn get_local_files(local_path: &String, files: &mut Vec<LocalFile>, ignored_directories: &mut Vec<String>)
 {
     if let Ok(entries) = fs::read_dir(Path::new(&local_path))
     {
@@ -175,7 +175,10 @@ fn get_local_files(local_path: &String, files: &mut Vec<LocalFile>)
             {
                 if metadata.is_dir()
                 {
-                    get_local_files(&file.path().to_str().unwrap().to_owned(), files);
+                    if !ignored_directories.contains(&file.file_name().to_str().unwrap().to_owned())
+                    {
+                        get_local_files(&file.path().to_str().unwrap().to_owned(), files, ignored_directories);
+                    }
                 }
                 else
                 {
@@ -193,7 +196,8 @@ fn main()
 {
     if env::args().len() < 3
     {
-        println!("Usage: s3-file-upload LOCAL_PATH BUCKET_NAME");
+        println!("\nUsage:\n\ns3-file-upload LOCAL_PATH BUCKET_NAME [OPTIONS]");
+        println!("\nOptions:\n\n--ignored_directories    List of directory names using a comma separator, e.g. --ignored_directories=ignored_dir_one,ignored_dir_two");
         return;
     }
 
@@ -206,8 +210,24 @@ fn main()
         return;
     }
 
+    let mut ignored_directories: Vec<String> = Vec::new();
+
+    // Set the ignored directories if the ignored_directories parameter is set
+    for parameter in env::args()
+    {
+        if parameter.contains("--ignored_directories=")
+        {
+            let directories = parameter.split("=").nth(1).unwrap();
+
+            for directory in directories.split(",")
+            {
+                ignored_directories.push(String::from(directory));
+            }
+        }
+    }
+
     let mut files: Vec<LocalFile> = Vec::new();
-    get_local_files(&local_path, &mut files);
+    get_local_files(&local_path, &mut files, &mut ignored_directories);
 
     // NOTE: bucket_objects is currently not used for anything.
     let mut bucket_objects: Vec<Object> = Vec::new();

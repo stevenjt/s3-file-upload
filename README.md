@@ -3,7 +3,12 @@
 A small console app that uploads files to an AWS S3 bucket.
 
 ```
-$ s3-file-upload LOCAL_PATH BUCKET_NAME
+$ s3-file-upload LOCAL_PATH BUCKET_NAME [OPTIONS]
+```
+
+Valid options:
+```
+--ignored_directories    List of directory names using a comma separator, e.g. --ignored_directories=ignored_dir_one,ignored_dir_two
 ```
 
 AWS user details are found in a `credentials` file that should be present in the same directory the app is run from. This file should contain the `aws_access_key_id` and `aws_secret_access_key` for the user:
