@@ -196,19 +196,19 @@ fn main()
 
     while input_string != "y" && input_string != "n"
     {
-        println!("\nConfirm upload? <Y/n>");
+        println!("\nConfirm upload? <y/N>");
 
         input_string.clear();
         stdin().read_line(&mut input_string).expect("Did not input string");
         input_string = String::from(input_string.trim().to_lowercase());
 
-        if input_string == "" || input_string == "yes"
-        {
-            input_string = String::from("y");
-        }
-        else if input_string == "no"
+        if input_string == "" || input_string == "no"
         {
             input_string = String::from("n");
+        }
+        else if input_string == "yes"
+        {
+            input_string = String::from("y");
         }
     }
 
