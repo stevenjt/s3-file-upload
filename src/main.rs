@@ -3,6 +3,7 @@
  */
 
 extern crate rusoto;
+extern crate crypto;
 
 use std::env;
 use std::fs;
@@ -15,6 +16,9 @@ use rusoto::{ProfileProvider, Region};
 use rusoto::s3::{Object, S3Client, ListObjectsV2Request, PutObjectRequest};
 use rusoto::default_tls_client;
 
+use crypto::md5::Md5;
+use crypto::digest::Digest;
+
 /**
  * Struct for files
  */
@@ -25,7 +29,7 @@ struct LocalFile
 }
 
 /**
- * Gets a mime type for a local file
+ * Get the mime type for a local file
  */
 fn local_file_get_mime(file: &LocalFile) -> String
 {
@@ -46,7 +50,31 @@ fn local_file_get_mime(file: &LocalFile) -> String
 }
 
 /**
- * Get a relative path
+ * Get the MD5 checksum of a local file
+ */
+fn local_file_get_md5(file: &LocalFile) -> String
+{
+    let mut file_handle = File::open(&file.path).unwrap();
+    let mut contents: Vec<u8> = Vec::new();
+
+    match file_handle.read_to_end(&mut contents)
+    {
+        Ok(_) =>
+        {
+            let mut md5_checksum = Md5::new();
+            md5_checksum.input(&contents);
+            return md5_checksum.result_str();
+        }
+        Err(error) =>
+        {
+            println!("Error: {}", error);
+            return String::from("");
+        }
+    }
+}
+
+/**
+ * Get a relative path for a local file
  */
 fn local_file_get_relative_path(file: &LocalFile, local_path: &String) -> String
 {
@@ -189,7 +217,7 @@ fn main()
 
     for file in &files
     {
-        println!("{}", file.path.to_str().unwrap());
+        println!("{} [{}]", file.path.to_str().unwrap(), local_file_get_md5(file));
     }
 
     let mut input_string = String::new();

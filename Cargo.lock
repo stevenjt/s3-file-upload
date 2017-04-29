@@ -3,6 +3,7 @@ name = "s3-file-upload"
 version = "0.1.0"
 dependencies = [
  "rusoto 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rust-crypto 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -451,6 +452,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-crypto"
+version = "0.2.36"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "gcc 0.3.45 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rustc-serialize"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -759,6 +772,7 @@ dependencies = [
 "checksum rusoto 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)" = "de544c629614ed2d5ea19769d15ff0628c77c52f6bbfb8deab1ffe89bfdd6f2e"
 "checksum rusoto_codegen 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6abc5c06c51d596124af8bcc0af8f1e7f0073632181d979ca4f1ed46ccf14feb"
 "checksum rusoto_credential 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5d0d7f808ae960d8bc1cc3d95ae4692c56d50a993b4475b19666a3159248fdc2"
+"checksum rust-crypto 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)" = "f76d05d3993fd5f4af9434e8e436db163a12a9d40e1a58a726f27a01dfd12a2a"
 "checksum rustc-serialize 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)" = "684ce48436d6465300c9ea783b6b14c4361d6b8dcbb1375b486a69cc19e2dfb0"
 "checksum rustc_version 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "c5f5376ea5e30ce23c03eb77cbe4962b988deead10910c372b226388b594c084"
 "checksum schannel 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "c8b291854e37196c2b67249e09d6bdeff410b19e1acf05558168e9c4413b4e95"
