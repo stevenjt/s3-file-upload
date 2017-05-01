@@ -8,12 +8,14 @@ extern crate crypto;
 use std::env;
 use std::fs;
 use std::path::Path;
-use std::fs::File;
+use std::path::PathBuf;
+use std::fs::{File, remove_file};
 use std::io::{stdin, Read, Write};
 use std::clone::Clone;
+use std::collections::HashMap;
 
 use rusoto::{ProfileProvider, Region};
-use rusoto::s3::{Object, S3Client, ListObjectsV2Request, PutObjectRequest};
+use rusoto::s3::{Object, S3Client, ListObjectsV2Request, GetObjectRequest, PutObjectRequest};
 use rusoto::default_tls_client;
 
 use crypto::md5::Md5;
@@ -25,7 +27,7 @@ use crypto::digest::Digest;
 #[derive(Clone)]
 struct LocalFile
 {
-    path: std::path::PathBuf
+    path: PathBuf
 }
 
 /**
@@ -43,6 +45,7 @@ fn local_file_get_mime(file: &LocalFile) -> String
         Some(&"gif")  => "image/gif",
         Some(&"jpg")  => "image/jpeg",
         Some(&"xml")  => "application/xml",
+        Some(&"txt")  => "text/plain",
         _             => "application/octet-stream",
     };
 
@@ -90,7 +93,7 @@ fn local_file_get_relative_path(file: &LocalFile, local_path: &String) -> String
 /**
  * Upload a local file to an s3 bucket location
  */
-fn local_file_upload_to_bucket(file: &LocalFile, local_path: &String, bucket_name: &String)
+fn local_file_upload_to_bucket(file: &LocalFile, local_path: &String, bucket_name: &String, public_file: bool)
 {
     let provider = ProfileProvider::with_configuration(Path::new("credentials"), "user");
     let client = S3Client::new(default_tls_client().unwrap(), provider, Region::EuWest1);
@@ -100,19 +103,25 @@ fn local_file_upload_to_bucket(file: &LocalFile, local_path: &String, bucket_nam
     print!("Uploading \"{}\" to \"{}/{}\"...", file.path.to_str().unwrap(), bucket_name, local_file_get_relative_path(&file, &local_path));
     Some(std::io::stdout().flush());
 
-    let mut file_handle = File::open(&file.path).unwrap();
+    let mut file_handle = File::open(&file.path).expect("Could not open file");
     let mut contents: Vec<u8> = Vec::new();
 
     match file_handle.read_to_end(&mut contents)
     {
         Ok(_) =>
         {
+            let mut acl = String::from("private");
+            if public_file
+            {
+                acl = String::from("public-read");
+            }
+
             let request = PutObjectRequest
             {
                 bucket: bucket_name.to_owned(),
                 key: local_file_get_relative_path(&file, &local_path),
                 body: Some(contents),
-                acl: Some(String::from("public-read")),
+                acl: Some(acl),
                 content_type: Some(local_file_get_mime(&file)),
                 ..PutObjectRequest::default()
             };
@@ -137,6 +146,36 @@ fn local_file_upload_to_bucket(file: &LocalFile, local_path: &String, bucket_nam
 }
 
 /**
+ * Create the local file checksums
+ */
+fn local_file_create_checksums(files: &Vec<LocalFile>, local_path: &String) -> LocalFile
+{
+    let mut path = PathBuf::from(local_path);
+    path.push("checksums.txt");
+
+    let mut checksums_file = File::create(path.to_str().unwrap()).expect("Could not create checksums");
+
+    for file in files.clone()
+    {
+        let checksums_line = format!("{} {}\n", local_file_get_relative_path(&file, local_path), local_file_get_md5(&file));
+        checksums_file.write(checksums_line.as_bytes()).expect("Could not write checksums");
+    }
+
+    return LocalFile { path: path };
+}
+
+/**
+ * Delete the local file checksums
+ */
+fn local_file_delete_checksums(local_path: &String)
+{
+    let mut path = PathBuf::from(local_path);
+    path.push("checksums.txt");
+
+    remove_file(path).expect("Could not remove checksums");
+}
+
+/**
  * Get objects in an s3 bucket
  */
 fn get_bucket_objects(bucket_name: &String, objects: &mut Vec<Object>)
@@ -157,7 +196,87 @@ fn get_bucket_objects(bucket_name: &String, objects: &mut Vec<Object>)
             objects.push(object.clone());
         }
     }
+}
 
+/**
+ * Struct for checksums
+ */
+#[derive(Clone)]
+struct Checksums
+{
+    files: HashMap<String, String>
+}
+
+/**
+ * Get the s3 bucket checksums
+ */
+fn get_bucket_object_checksums(bucket_name: &String, bucket_objects: &Vec<Object>) -> Option<Checksums>
+{
+    match bucket_objects.iter().position(|obj| obj.clone().key.unwrap() == String::from("checksums.txt"))
+    {
+        Some(index) =>
+        {
+            let provider = ProfileProvider::with_configuration(Path::new("credentials"), "user");
+            let client = S3Client::new(default_tls_client().unwrap(), provider, Region::EuWest1);
+
+            let obj = bucket_objects.get(index).clone().unwrap();
+
+            let request = GetObjectRequest
+            {
+                bucket: bucket_name.to_owned(),
+                key: obj.clone().key.unwrap(),
+                ..GetObjectRequest::default()
+            };
+
+            if let Ok(response) = client.get_object(&request)
+            {
+                let contents_bytes = response.body.unwrap();
+                let contents = String::from_utf8_lossy(&contents_bytes);
+
+                let mut hash_map = HashMap::new();
+
+                for line in contents.split("\n")
+                {
+                    let mut line_split = line.split_whitespace();
+                    let path = line_split.next();
+                    let md5 = line_split.next();
+
+                    if path != None && md5 != None
+                    {
+                        let path = String::from(path.unwrap());
+                        let md5 = String::from(md5.unwrap());
+                        hash_map.insert(path, md5);
+                    }
+                }
+
+                let checksums = Checksums {files: hash_map};
+                Some(checksums)
+            }
+            else
+            {
+                None
+            }
+        },
+        None =>
+        {
+            None
+        }
+    }
+}
+
+/**
+ * Check if the file matches the checksums
+ */
+fn local_file_matches_checksums(file: &LocalFile, checksums: &Checksums) -> bool
+{
+    for (path, md5) in &checksums.files
+    {
+        if local_file_get_md5(file) == md5.to_owned()
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -229,15 +348,32 @@ fn main()
     let mut files: Vec<LocalFile> = Vec::new();
     get_local_files(&local_path, &mut files, &mut ignored_directories);
 
-    // NOTE: bucket_objects is currently not used for anything.
     let mut bucket_objects: Vec<Object> = Vec::new();
     get_bucket_objects(&bucket_name, &mut bucket_objects);
+
+    let checksums = match get_bucket_object_checksums(&bucket_name, &bucket_objects)
+    {
+        Some(checksums) =>
+        {
+            Some(checksums)
+        },
+        None =>
+        {
+            let hash_map = HashMap::new();
+            let checksums = Checksums {files: hash_map};
+            Some(checksums)
+        }
+    }.unwrap();
+
 
     println!("\nFiles found to be uploaded:\n");
 
     for file in &files
     {
-        println!("{} [{}]", file.path.to_str().unwrap(), local_file_get_md5(file));
+        if !local_file_matches_checksums(&file, &checksums)
+        {
+            println!("{}", local_file_get_relative_path(file, &local_path));
+        }
     }
 
     let mut input_string = String::new();
@@ -266,8 +402,15 @@ fn main()
     {
         for file in &files
         {
-            local_file_upload_to_bucket(&file, &local_path, &bucket_name);
+            if !local_file_matches_checksums(&file, &checksums)
+            {
+                local_file_upload_to_bucket(&file, &local_path, &bucket_name, true);
+            }
         }
+
+        let new_checksums = local_file_create_checksums(&files, &local_path);
+        local_file_upload_to_bucket(&new_checksums, &local_path, &bucket_name, false);
+        local_file_delete_checksums(&local_path);
     }
     else
     {
