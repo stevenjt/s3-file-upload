@@ -22,6 +22,17 @@ use crypto::md5::Md5;
 use crypto::digest::Digest;
 
 /**
+ * Enum for file status
+ */
+#[derive(PartialEq)]
+enum FileStatus
+{
+    NotModified,
+    Modified,
+    New
+}
+
+/**
  * Struct for files
  */
 #[derive(Clone)]
@@ -268,16 +279,23 @@ fn get_bucket_object_checksums(bucket_name: &String, bucket_objects: &Vec<Object
 /**
  * Check if the file matches the checksums
  */
-fn local_file_matches_checksums(file: &LocalFile, checksums: &Checksums) -> bool
+fn local_file_matches_checksums(local_path: &String, file: &LocalFile, checksums: &Checksums) -> FileStatus
 {
     for (path, md5) in &checksums.files
     {
-        if file.md5 == md5.to_owned()
+        if &local_file_get_relative_path(file, local_path) == path
         {
-            return true;
+            if file.md5 == md5.to_owned()
+            {
+                return FileStatus::NotModified;
+            }
+            else
+            {
+                return FileStatus::Modified;
+            }
         }
     }
-    return false;
+    return FileStatus::New;
 }
 
 /**
@@ -373,9 +391,14 @@ fn main()
 
     for file in &files
     {
-        if !local_file_matches_checksums(&file, &checksums)
+        let file_status: FileStatus = local_file_matches_checksums(&local_path, &file, &checksums);
+        if file_status == FileStatus::Modified
         {
-            println!("{}", local_file_get_relative_path(file, &local_path));
+            println!("Modified: {}", local_file_get_relative_path(file, &local_path));
+        }
+        else if file_status == FileStatus::New
+        {
+            println!("New: {}", local_file_get_relative_path(file, &local_path));
         }
     }
 
@@ -405,7 +428,8 @@ fn main()
     {
         for file in &files
         {
-            if !local_file_matches_checksums(&file, &checksums)
+            let file_status: FileStatus = local_file_matches_checksums(&local_path, &file, &checksums);
+            if file_status == FileStatus::Modified || file_status == FileStatus::New
             {
                 local_file_upload_to_bucket(&file, &local_path, &bucket_name, true);
             }
