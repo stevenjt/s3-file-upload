@@ -27,7 +27,8 @@ use crypto::digest::Digest;
 #[derive(Clone)]
 struct LocalFile
 {
-    path: PathBuf
+    path: PathBuf,
+    md5: String
 }
 
 /**
@@ -157,11 +158,11 @@ fn local_file_create_checksums(files: &Vec<LocalFile>, local_path: &String) -> L
 
     for file in files.clone()
     {
-        let checksums_line = format!("{} {}\n", local_file_get_relative_path(&file, local_path), local_file_get_md5(&file));
+        let checksums_line = format!("{} {}\n", local_file_get_relative_path(&file, local_path), file.md5);
         checksums_file.write(checksums_line.as_bytes()).expect("Could not write checksums");
     }
 
-    return LocalFile { path: path };
+    return LocalFile { path: path, md5: String::from("") };
 }
 
 /**
@@ -271,7 +272,7 @@ fn local_file_matches_checksums(file: &LocalFile, checksums: &Checksums) -> bool
 {
     for (path, md5) in &checksums.files
     {
-        if local_file_get_md5(file) == md5.to_owned()
+        if file.md5 == md5.to_owned()
         {
             return true;
         }
@@ -301,7 +302,9 @@ fn get_local_files(local_path: &String, files: &mut Vec<LocalFile>, ignored_dire
                 }
                 else
                 {
-                    files.push(LocalFile { path: file.path() });
+                    let temp_file = LocalFile { path: file.path(), md5: String::from("") };
+                    let file = LocalFile { path: file.path(), md5: local_file_get_md5(&temp_file) };
+                    files.push(file);
                 }
             }
         }
