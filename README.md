@@ -1,6 +1,6 @@
 # s3-file-upload
 
-A small console app that uploads files to an AWS S3 bucket.
+A command line utility that uploads files to an AWS S3 bucket.
 
 ```
 $ s3-file-upload LOCAL_PATH BUCKET_NAME [OPTIONS]

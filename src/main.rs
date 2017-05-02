@@ -4,6 +4,7 @@
 
 extern crate rusoto;
 extern crate crypto;
+extern crate term_painter;
 
 use std::env;
 use std::fs;
@@ -20,6 +21,9 @@ use rusoto::default_tls_client;
 
 use crypto::md5::Md5;
 use crypto::digest::Digest;
+
+use term_painter::ToStyle;
+use term_painter::Color::*;
 
 /**
  * Enum for file status
@@ -82,7 +86,7 @@ fn local_file_get_md5(file: &LocalFile) -> String
         }
         Err(error) =>
         {
-            println!("Error: {}", error);
+            println!("{}: {}", Red.paint("Error"), error);
             return String::from("");
         }
     }
@@ -112,7 +116,7 @@ fn local_file_upload_to_bucket(file: &LocalFile, local_path: &String, bucket_nam
 
     let file = file.clone();
 
-    print!("Uploading \"{}\" to \"{}/{}\"...", file.path.to_str().unwrap(), bucket_name, local_file_get_relative_path(&file, &local_path));
+    print!("{} \"{}\" to \"{}/{}\"...", Yellow.paint("Uploading"), file.path.to_str().unwrap(), bucket_name, local_file_get_relative_path(&file, &local_path));
     Some(std::io::stdout().flush());
 
     let mut file_handle = File::open(&file.path).expect("Could not open file");
@@ -142,17 +146,17 @@ fn local_file_upload_to_bucket(file: &LocalFile, local_path: &String, bucket_nam
             {
                 Ok(_) =>
                 {
-                    println!(" DONE");
+                    println!(" {}", Green.paint("DONE"));
                 }
                 Err(error) =>
                 {
-                   println!(" Error: {}", error);
+                    println!(" {}: {}", Red.paint("Error"), error);
                 }
             }
         }
         Err(error) =>
         {
-            println!("Error: {}", error);
+            println!("{}: {}", Red.paint("Error"), error);
         }
     }
 }
@@ -346,7 +350,7 @@ fn main()
 
     if !Path::new("credentials").exists()
     {
-        println!("credentials file could not be found");
+        println!("{}", Red.paint("credentials file could not be found"));
         return;
     }
 
@@ -408,12 +412,12 @@ fn main()
 
         for file in &new_files
         {
-            println!("New: {}", local_file_get_relative_path(file, &local_path));
+            println!("{}:      {}", Green.paint("New"), local_file_get_relative_path(file, &local_path));
         }
 
         for file in &modified_files
         {
-            println!("Modified: {}", local_file_get_relative_path(file, &local_path));
+            println!("{}: {}", Green.paint("Modified"), local_file_get_relative_path(file, &local_path));
         }
 
         let mut input_string = String::new();
@@ -440,6 +444,8 @@ fn main()
 
         if confirm_upload
         {
+            println!("");
+
             for file in &modified_files
             {
                 local_file_upload_to_bucket(&file, &local_path, &bucket_name, true);
@@ -453,15 +459,16 @@ fn main()
             let new_checksums = local_file_create_checksums(&files, &local_path);
             local_file_upload_to_bucket(&new_checksums, &local_path, &bucket_name, false);
             local_file_delete_checksums(&local_path);
+
+            println!("\n{}", Green.paint("UPLOAD COMPLETE"))
         }
         else
         {
-            println!("\nUpload cancelled")
+            println!("\n{}", Yellow.paint("UPLOAD CANCELLED"))
         }
     }
     else
     {
-        println!("\nNo pending modified/new files")
+        println!("\n{}", Yellow.paint("No pending modified/new files"));
     }
-
 }
