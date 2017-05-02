@@ -386,61 +386,82 @@ fn main()
         }
     }.unwrap();
 
-
-    println!("\nFiles found to be uploaded:\n");
+    let mut new_files: Vec<LocalFile> = Vec::new();
+    let mut modified_files: Vec<LocalFile> = Vec::new();
 
     for file in &files
     {
         let file_status: FileStatus = local_file_matches_checksums(&local_path, &file, &checksums);
-        if file_status == FileStatus::Modified
+        if file_status == FileStatus::New
         {
-            println!("Modified: {}", local_file_get_relative_path(file, &local_path));
+            new_files.push(file.to_owned());
         }
-        else if file_status == FileStatus::New
+        else if file_status == FileStatus::Modified
+        {
+            modified_files.push(file.to_owned());
+        }
+    }
+
+    if modified_files.len() > 0 || new_files.len() > 0
+    {
+        println!("\nFiles found to be uploaded:\n");
+
+        for file in &new_files
         {
             println!("New: {}", local_file_get_relative_path(file, &local_path));
         }
-    }
 
-    let mut input_string = String::new();
-
-    while input_string != "y" && input_string != "n"
-    {
-        println!("\nConfirm upload? <y/N>");
-
-        input_string.clear();
-        stdin().read_line(&mut input_string).expect("Did not input string");
-        input_string = String::from(input_string.trim().to_lowercase());
-
-        if input_string == "" || input_string == "no"
+        for file in &modified_files
         {
-            input_string = String::from("n");
+            println!("Modified: {}", local_file_get_relative_path(file, &local_path));
         }
-        else if input_string == "yes"
-        {
-            input_string = String::from("y");
-        }
-    }
 
-    let confirm_upload = input_string == "y";
+        let mut input_string = String::new();
 
-    if confirm_upload
-    {
-        for file in &files
+        while input_string != "y" && input_string != "n"
         {
-            let file_status: FileStatus = local_file_matches_checksums(&local_path, &file, &checksums);
-            if file_status == FileStatus::Modified || file_status == FileStatus::New
+            println!("\nConfirm upload? <y/N>");
+
+            input_string.clear();
+            stdin().read_line(&mut input_string).expect("Did not input string");
+            input_string = String::from(input_string.trim().to_lowercase());
+
+            if input_string == "" || input_string == "no"
             {
-                local_file_upload_to_bucket(&file, &local_path, &bucket_name, true);
+                input_string = String::from("n");
+            }
+            else if input_string == "yes"
+            {
+                input_string = String::from("y");
             }
         }
 
-        let new_checksums = local_file_create_checksums(&files, &local_path);
-        local_file_upload_to_bucket(&new_checksums, &local_path, &bucket_name, false);
-        local_file_delete_checksums(&local_path);
+        let confirm_upload = input_string == "y";
+
+        if confirm_upload
+        {
+            for file in &modified_files
+            {
+                local_file_upload_to_bucket(&file, &local_path, &bucket_name, true);
+            }
+
+            for file in &new_files
+            {
+                local_file_upload_to_bucket(&file, &local_path, &bucket_name, true);
+            }
+
+            let new_checksums = local_file_create_checksums(&files, &local_path);
+            local_file_upload_to_bucket(&new_checksums, &local_path, &bucket_name, false);
+            local_file_delete_checksums(&local_path);
+        }
+        else
+        {
+            println!("\nUpload cancelled")
+        }
     }
     else
     {
-        println!("Upload cancelled")
+        println!("\nNo pending modified/new files")
     }
+
 }
